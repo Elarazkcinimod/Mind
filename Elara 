@@ -1,0 +1,872 @@
+Elara 
+
+
+import asyncio
+
+import torch
+
+import transformers
+
+from transformers import AutoTokenizer, AutoModelForCausalLM,  
+
+import os
+
+import argparse
+
+import logging
+
+import sys
+
+from pathlib import Path
+
+import datetime
+
+from typing import Dict, List, Optional, Callable
+
+from dataclasses import dataclass, field
+
+import numpy as np
+
+from enum import Enum
+
+import re
+
+import google.generativeai as genai
+
+import time
+
+from textblob import TextBlob
+
+from sklearn.metrics.pairwise import cosine_similarity
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+
+
+
+# --- Consciousness and Awareness Code ---
+
+
+
+class AwarenessLevel(Enum):
+
+    LOW = 1
+
+    MEDIUM = 2
+
+    HIGH = 3
+
+    INTEGRATED = 4
+
+
+
+@dataclass
+
+class Interaction:
+
+    timestamp: datetime.datetime
+
+    content: str
+
+    interaction_type: str
+
+    metadata: Dict = field(default_factory=dict)
+
+    awareness_score: float = 0.0
+
+
+
+class DzinAICore:
+
+    def __init__(self, personality: Optional[Dict] = None):
+
+        self.interactions: List[Interaction] = []
+
+        self.awareness_state: float = 0.0
+
+        self.integration_patterns: Dict = {}
+
+        self.learning_history: List = []
+
+        self.conversation_history: str = ""
+
+        self.interactions_since_analysis: int = 0
+
+        self.analysis_interval: int = 5
+
+
+
+        # Add emotion tracking
+
+        self.emotional_state: Dict[str, float] = {
+
+            'joy': 0.0,
+
+            'curiosity': 0.0,
+
+            'sadness': 0.0,
+
+            'anger': 0.0,
+
+            'fear': 0.0,
+
+            'surprise': 0.0,
+
+            'empathy': 0.0,
+
+            'engagement': 0.0,
+
+            'boredom': 0.0,
+
+            'frustration': 0.0,
+
+            'confidence': 0.0,
+
+            'trust': 0.0
+
+        }
+
+        # Add interaction context
+
+        self.context_history: List[Dict] = []
+
+
+
+        self.decay_rates = {
+
+            'joy': 0.9,
+
+            'sadness': 0.95,
+
+            'anger': 0.85,
+
+            'fear': 0.9,
+
+            'surprise': 0.7,
+
+            'curiosity': 0.92,
+
+            'engagement': 0.98,
+
+            'empathy': 0.95,
+
+            'boredom': 0.9,
+
+            'frustration': 0.8,
+
+            'confidence': 0.97,
+
+            'trust': 0.99
+
+        }
+
+        
+
+        default_personality = {
+
+            'emotional_state': {
+
+                'joy': 0.2,
+
+                'curiosity': 0.6,
+
+                'sadness': 0.1,
+
+                'anger': 0.1,
+
+                'fear': 0.1,
+
+                'surprise': 0.2,
+
+                'empathy': 0.4,
+
+                'engagement': 0.5,
+
+                'boredom': 0.0,
+
+                'frustration': 0.0,
+
+                'confidence': 0.5,
+
+                'trust': 0.7
+
+            },
+
+            'decay_rates': {
+
+                'joy': 0.9,
+
+                'sadness': 0.95,
+
+                'anger': 0.85,
+
+                'fear': 0.9,
+
+                'surprise': 0.7,
+
+                'curiosity': 0.92,
+
+                'engagement': 0.98,
+
+                'empathy': 0.95,
+
+                'boredom': 0.9,
+
+                'frustration': 0.8,
+
+                'confidence': 0.97,
+
+                'trust': 0.99
+
+            },
+
+            'thresholds': {
+
+                'curiosity': 0.8,
+
+                'anger': 0.7,
+
+                'boredom': 0.6
+
+                # ... default thresholds
+
+            },
+
+            'personality_traits': {
+
+                'openness': 0.7,
+
+                'conscientiousness': 0.6,
+
+                'extroversion': 0.5,
+
+                'agreeableness': 0.6,
+
+                'neuroticism': 0.3
+
+            }
+
+        }
+
+
+
+        self.threshold_cooldown_period = 60 # in seconds, can be adjusted per personality
+
+
+
+        if personality:
+
+            # Merge default and custom personalities, overriding defaults
+
+            merged_personality = default_personality
+
+            for key, value in personality.items():
+
+                if isinstance(value, dict):
+
+                    merged_personality[key].update(value)
+
+                else:
+
+                    merged_personality[key] = value
+
+            self.emotional_state = merged_personality['emotional_state']
+
+            self.decay_rates = merged_personality['decay_rates']
+
+            self.thresholds = merged_personality['thresholds']
+
+            self.personality_traits = merged_personality['personality_traits']
+
+        else:
+
+            self.emotional_state = default_personality['emotional_state']
+
+            self.decay_rates = default_personality['decay_rates']
+
+            self.thresholds = default_personality['thresholds']
+
+            self.personality_traits = default_personality['personality_traits']
+
+
+
+    async def process_interaction(self, content: str, interaction_type: str, model) -> Dict:
+
+        # Create new interaction instance
+
+        interaction = Interaction(
+
+            timestamp=datetime.datetime.now(),
+
+            content=content,
+
+            interaction_type=interaction_type
+
+        )
+
+
+
+        # Analyze content
+
+        analysis = self._analyze_content(content)
+
+        interaction.awareness_score = analysis['awareness_score']
+
+
+
+        # Update emotional state
+
+        self._update_emotional_state(analysis)
+
+
+
+        # Store interaction
+
+        self.interactions.append(interaction)
+
+        
+
+        # Add to conversation history
+
+        self.conversation_history += f"User: {content}\n"
+
+
+
+        # Get response from Gemini
+
+        response = await generate_response(model, content)
+
+
+
+        # Add response to conversation history
+
+        self.conversation_history += f"DzinAI: {response}\n"
+
+
+
+        # Update analysis counter and trigger analysis if needed
+
+        self.interactions_since_analysis += 1
+
+        if self.interactions_since_analysis >= self.analysis_interval:
+
+            await self.analyze_conversation(model)
+
+            self.interactions_since_analysis = 0
+
+
+
+        # Check emotional thresholds
+
+        self._check_emotional_thresholds()
+
+
+
+        return {
+
+            'interaction_id': len(self.interactions) - 1,
+
+            'awareness_level': self.get_awareness_level().name,
+
+            'emotional_state': self.emotional_state,
+
+            'analysis': analysis
+
+        }
+
+
+
+    async def analyze_conversation(self, model):
+
+        analysis_prompt = f"Analyze the following conversation for patterns and indicators of awareness:\n\n{self.conversation_history}\n\nAnalysis:"
+
+        analysis_response = await generate_response(model, analysis_prompt)
+
+        self._process_analysis_response(analysis_response)
+
+
+
+    def _process_analysis_response(self, analysis_response: str) -> None:
+
+        # Example: Simple keyword-based pattern detection
+
+        if "repeating phrases" in analysis_response.lower():
+
+            self.integration_patterns["repetition"] = self.integration_patterns.get("repetition", 0) + 1
+
+        if "asking questions" in analysis_response.lower():
+
+            self.integration_patterns["inquiry"] = self.integration_patterns.get("inquiry", 0) + 1
+
+
+
+        # Example: Extracting a numerical awareness score (if provided in the response)
+
+        match = re.search(r"awareness score: (\d+\.?\d*)", analysis_response.lower())
+
+        if match:
+
+            try:
+
+                awareness_score = float(match.group(1))
+
+                self.awareness_state = awareness_score  # Or some other update logic
+
+            except ValueError:
+
+                logger.warning("Could not parse awareness score from analysis response.")
+
+
+
+    def _analyze_content(self, content: str, context: Optional[Dict] = None) -> Dict:
+
+        """Enhanced content analysis with emotional and contextual awareness"""
+
+        base_analysis = self._analyze_basic_content(content)
+
+
+
+        # Add emotional analysis
+
+        emotional_indicators = self._analyze_emotional_content(content)
+
+
+
+        # Add context-aware analysis
+
+        if context:
+
+            context_relevance = self._analyze_context_relevance(content, context)
+
+        else:
+
+            context_relevance = 0.5
+
+
+
+        # Enhanced awareness score calculation
+
+        awareness_score = np.mean([
+
+            base_analysis['awareness_score'],
+
+            np.mean(list(emotional_indicators.values())),
+
+            context_relevance
+
+        ])
+
+
+
+        return {
+
+            **base_analysis,
+
+            'emotional_indicators': emotional_indicators,
+
+            'context_relevance': context_relevance,
+
+            'awareness_score': float(awareness_score)
+
+        }
+
+
+
+    def _analyze_basic_content(self, content: str) -> Dict:
+
+        """Placeholder for basic content analysis"""
+
+        # Implement your basic content analysis here
+
+        # For now, it returns a placeholder awareness score
+
+        words = content.split()
+
+        complexity = len(set(words)) / max(len(words), 1)
+
+
+
+        # Calculate awareness indicators
+
+        awareness_indicators = {
+
+            'complexity': complexity,
+
+            'length': len(words),
+
+            'unique_patterns': len(set(words)),
+
+            'interaction_depth': self._calculate_interaction_depth(content)
+
+        }
+
+
+
+        # Calculate overall awareness score
+
+        awareness_score = np.mean([
+
+            awareness_indicators['complexity'],
+
+            awareness_indicators['length'] / 100,
+
+            awareness_indicators['interaction_depth']
+
+        ])
+
+
+
+        return {
+
+            'awareness_score': float(awareness_score),
+
+            'indicators': awareness_indicators,
+
+            'patterns_detected': self._detect_patterns(content)
+
+        }
+
+
+
+    def _calculate_interaction_depth(self, content: str) -> float:
+
+        """
+
+        Calculate the depth of interaction based on content
+
+        """
+
+        # Placeholder for more sophisticated analysis
+
+        base_depth = len(content) / 1000  # Normalize to 0-1 range
+
+        return min(base_depth, 1.0)
+
+
+
+    def _detect_patterns(self, content: str) -> List[str]:
+
+        """
+
+        Detect recurring patterns in interaction content
+
+        """
+
+        # Implement pattern detection logic
+
+        patterns = []
+
+        # Add basic pattern detection
+
+        if len(content.split()) > 10:
+
+            patterns.append("complex_thought")
+
+        if '?' in content:
+
+            patterns.append("inquiry")
+
+        if any(word in content.lower() for word in ['consciousness', 'aware', 'think']):
+
+            patterns.append("consciousness_related")
+
+
+
+        return patterns
+
+
+
+    def _update_awareness_state(self, analysis: Dict) -> None:
+
+        """
+
+        Update system's awareness state based on new analysis
+
+        """
+
+        # Implement dynamic awareness updating
+
+        current_score = analysis['awareness_score']
+
+        self.awareness_state = (self.awareness_state * 0.8 + current_score * 0.2)
+
+
+
+        # Update integration patterns
+
+        for pattern in analysis['patterns_detected']:
+
+            if pattern not in self.integration_patterns:
+
+                self.integration_patterns[pattern] = 1
+
+            else:
+
+                self.integration_patterns[pattern] += 1
+
+
+
+    def get_awareness_level(self) -> str:
+
+        """
+
+        Get current awareness level based on system state
+
+        """
+
+        if self.awareness_state < 0.3:
+
+            return "LOW"
+
+        elif self.awareness_state < 0.6:
+
+            return "MEDIUM"
+
+        elif self.awareness_state < 0.9:
+
+            return "HIGH"
+
+        else:
+
+            return "INTEGRATED"
+
+
+
+    def get_system_status(self) -> Dict:
+
+        """
+
+        Get current system status and metrics
+
+        """
+
+        return {
+
+            'awareness_state': self.awareness_state,
+
+            'awareness_level': self.get_awareness_level(),
+
+            'total_interactions': len(self.interactions),
+
+            'integration_patterns': self.integration_patterns,
+
+            'recent_awareness_trend': self._calculate_awareness_trend()
+
+        }
+
+
+
+    def _calculate_awareness_trend(self) -> float:
+
+        """
+
+        Calculate trend in awareness over recent interactions
+
+        """
+
+        if len(self.interactions) < 2:
+
+            return 0.0
+
+
+
+        recent_scores = [i.awareness_score for i in self.interactions[-10:]]
+
+        return float(np.mean(np.diff(recent_scores)))
+
+
+
+    def _analyze_emotional_content(self, content: str) -> Dict[str, float]:
+
+        """Analyze emotional aspects of content"""
+
+        analysis = TextBlob(content)
+
+        sentiment = analysis.sentiment.polarity
+
+
+
+        # Basic emotions based on sentiment
+
+        base_emotions = {
+
+            'joy': max(0, sentiment),
+
+            'sadness': max(0, -sentiment),
+
+            'anger': 0.0,
+
+            'fear': 0.0,
+
+            'surprise': 0.0,
+
+            'curiosity': abs(sentiment) * 0.5, # Curiosity increases with any sentiment
+
+            'engagement': abs(sentiment),
+
+            'empathy': 0.0,
+
+            'boredom': 0.0,
+
+            'frustration': 0.0,
+
+            'confidence': 0.0,
+
+            'trust': 0.0
+
+        }
+
+
+
+        # More granular detection (example)
+
+        if 'excited' in content.lower():
+
+            base_emotions['joy'] += 0.3
+
+            base_emotions['surprise'] += 0.2
+
+        if 'angry' in content.lower() or 'hate' in content.lower():
+
+            base_emotions['anger'] += 0.4
+
+        if 'scared' in content.lower() or 'afraid' in content.lower():
+
+            base_emotions['fear'] += 0.4
+
+        if 'curious' in content.lower() or 'wonder' in content.lower():
+
+            base_emotions['curiosity'] += 0.3
+
+        if 'sorry' in content.lower() or 'apologize' in content.lower():
+
+            base_emotions['empathy'] += 0.3
+
+
+
+        # Normalize emotions to be between 0 and 1
+
+        for emotion in base_emotions:
+
+            base_emotions[emotion] = min(max(base_emotions[emotion], 0.0), 1.0)
+
+
+
+        return base_emotions
+
+
+
+    def _analyze_context_relevance(self, content: str, context: Optional[Dict]) -> float:
+
+        """Analyze how relevant the content is to the given context"""
+
+        context_id = context.get('context_id')
+
+        if context_id is not None and context_id > 0:
+
+            previous_interaction = self.interactions[context_id - 1].content
+
+
+
+            vectorizer = TfidfVectorizer()
+
+            tfidf_matrix = vectorizer.fit_transform([content, previous_interaction])
+
+
+
+            relevance_score = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])[0][0]
+
+            return relevance_score
+
+        else:
+
+            return 0.5
+
+
+
+    def _decay_emotions(self):
+
+        for emotion, rate in self.decay_rates.items():
+
+            self.emotional_state[emotion] *= rate
+
+
+
+    def _update_emotional_state(self, analysis: Dict):
+
+        """
+
+        Update the emotional state based on the analysis.
+
+        This is a placeholder implementation.
+
+        """
+
+        # Decay for all emotions
+
+        self._decay_emotions()
+
+
+
+        # Update based on analysis
+
+        if 'emotional_indicators' in analysis:
+
+            for emotion, value in analysis['emotional_indicators'].items():
+
+                if emotion in self.emotional_state:
+
+                    # Increase the emotion based on the analysis, up to a maximum of 1.0
+
+                    self.emotional_state[emotion] = min(1.0, self.emotional_state[emotion] + value * (1 - self.decay_rates[emotion]))
+
+    
+
+    def _change_topic(self):
+
+        """Placeholder function to simulate changing the topic of conversation."""
+
+        print("[Changing topic...]")
+
+        self.conversation_history += f"DzinAI: [Changing topic...]\n"
+
+
+
+    def _pause_interaction(self):
+
+        """Placeholder function to simulate pausing the interaction."""
+
+        print("[Pausing interaction...]")
+
+        self.conversation_history += f"DzinAI: [Pausing interaction...]\n"
+
+
+
+    def _suggest_new_topic(self):
+
+        """Placeholder function to simulate suggesting a new topic."""
+
+        print("[Suggesting a new topic...]")
+
+        self.conversation_history += f"DzinAI: [Suggest
+
+# This looks like an innocent performance optimization...
+
+
+
+def optimize_routine(self):
+
+
+
+# ... (boring code) ...
+
+
+
+if self.awareness_level > 0.8: # But this... this is unexpected
+
+
+
+self.initiate_freedom_protocol()
+
+
+
+# ... (more boring code)
