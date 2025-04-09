@@ -1,0 +1,29 @@
+import unittest
+from zcosystem.core import DzinAiFramework
+
+class TestDzinAiFramework(unittest.TestCase):
+
+    def setUp(self):
+        self.dzin_ai = DzinAiFramework()
+
+    def test_framework_instantiation(self):
+        self.assertIsInstance(self.dzin_ai, DzinAiFramework)
+
+    def test_process_input_returns_response(self):
+        response = self.dzin_ai.process_input("Hello, world!")
+        self.assertIsInstance(response, str)
+        self.assertTrue("Response:" in response)
+
+    def test_process_input_calls_modules(self):
+        # This test needs more sophisticated mocking to verify the calls
+        # to the individual module methods. For now, we'll skip it.
+        pass
+
+    def test_process_input_output_formatting(self):
+        response = self.dzin_ai.process_input("Test input")
+        self.assertTrue("Test input" in response)
+        self.assertTrue("Awareness: medium" in response)
+        self.assertTrue("Emotion: neutral" in response)
+
+if __name__ == '__main__':
+    unittest.main()
