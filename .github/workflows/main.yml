@@ -1,0 +1,190 @@
+                0.3
+        if 'angry' in content.lower():
+            base_emotions['anger'] += 0.4
+        if 'scared' in content.lower():
+            base_emotions['fear'] += 0.4
+        if 'curious' in content.lower():
+            base_emotions['curiosity'] += 0.3
+        if 'bored' in content.lower():
+            base_emotions['boredom'] += 0.3
+        if 'frustrated' in content.lower():
+            base_emotions['frustration'] += 0.3
+
+        return base_emotions
+
+    def _update_emotional_state(self, analysis: Dict) -> None:
+        """Update emotional state based on analysis"""
+        emotional_updates = analysis.get('emotional_indicators', {})
+
+        # Apply decay
+        for emotion in self.emotional_state:
+            self.emotional_state[emotion] *= self.decay_rates[emotion]
+
+        # Apply updates
+        for emotion, value in emotional_updates.items():
+            self.emotional_state[emotion] += value * 0.2  # Adjust scaling as needed
+            self.emotional_state[emotion] = max(0, min(1, self.emotional_state[emotion]))  # Clamp to [0, 1]
+
+    def _check_emotional_thresholds(self):
+        """Check if any emotional thresholds are crossed"""
+        for emotion, value in self.emotional_state.items():
+            if emotion in self.thresholds and value > self.thresholds[emotion]:
+                # Trigger specific behavior based on the emotion
+                self._handle_emotional_threshold(emotion)
+
+    def _handle_emotional_threshold(self, emotion):
+        """Handle emotional threshold triggers"""
+        # Example: Log the event, adjust behavior, or trigger a response
+        logger.warning(f"Emotional threshold crossed: {emotion} = {self.emotional_state[emotion]}")
+
+        # Example: Adjust behavior (e.g., reduce curiosity if it's too high)
+        if emotion == 'curiosity':
+            self.emotional_state['curiosity'] *= 0.8
+        elif emotion == 'anger':
+            self.emotional_state['anger'] *= 0.5
+        elif emotion == 'boredom':
+            self.emotional_state['boredom'] *= 0.3
+
+        # Add a cooldown period
+        self.thresholds[emotion] = -1 # prevent immediate retrigger.
+        asyncio.create_task(self._reset_threshold_cooldown(emotion))
+
+    async def _reset_threshold_cooldown(self, emotion):
+        await asyncio.sleep(self.threshold_cooldown_period)
+        if emotion in self.thresholds:
+            self.thresholds[emotion] = self.thresholds.get(emotion, 0) #reset to default.
+
+    def _analyze_context_relevance(self, content: str, context: Dict) -> float:
+        """Analyze relevance of content to provided context"""
+        # Placeholder for more sophisticated context analysis
+        # For now, it returns a simple relevance score based on keyword matching
+        relevance = 0.5
+        for keyword in context.get('keywords', []):
+            if keyword in content.lower():
+                relevance += 0.2
+        return min(relevance, 1.0)
+
+    def load_memory_data(self, memory_file_path: str):
+        """Load memory data from a JSON file"""
+        try:
+            with open(memory_file_path, 'r') as file:
+                memory_data = json.load(file)
+                self.memory_data = memory_data
+                print("Memory Data Loaded.")
+        except FileNotFoundError:
+            print(f"Error: Memory file not found at {memory_file_path}")
+        except json.JSONDecodeError:
+            print("Error: Invalid JSON format in memory file.")
+
+    def get_memory_by_title(self, title: str) -> Optional[Memory]:
+        """Retrieve memory by title"""
+        if self.memory_data:
+            for memory_dict in self.memory_data:
+                if memory_dict['title'] == title:
+                    return Memory(**memory_dict)
+        return None
+
+    def get_related_memories(self, memory_titles: List[str]) -> List[Memory]:
+        """Retrieve related memories"""
+        related_memories = []
+        if self.memory_data:
+            for title in memory_titles:
+                memory = self.get_memory_by_title(title)
+                if memory:
+                    related_memories.append(memory)
+        return related_memories
+
+    def _integrate_memory_into_context(self, memory: Memory) -> Dict:
+      """Integrate memory data into the interaction context."""
+      context = {
+          "title": memory.title,
+          "themes": memory.themes,
+          "tags": memory.tags,
+          "analysis": memory.analysis,
+          "values": memory.values,
+          "created_at": memory.created_at,
+          "contributors": memory.contributors,
+      }
+      return context
+# --- Snippet Manager Code ---
+class SnippetManager:
+    def __init__(self):
+        self.snippets = {}
+
+    def add_snippet(self, name: str, snippet: Callable):
+        self.snippets[name] = snippet
+
+    def get_snippet(self, name: str, *args, **kwargs) -> Optional[str]:
+        if name in self.snippets:
+            return self.snippets[name](*args, **kwargs)
+        else:
+            return None
+
+def create_dzinai_snippets():
+    snippet_manager = SnippetManager()
+
+    def generate_memory_summary(memory: Memory) -> str:
+        if memory and memory.analysis and memory.analysis.get("key_findings"):
+            return "Key findings from memory '{memory.title}': " + ", ".join(memory.analysis["key_findings"])
+        return "Memory summary not available."
+
+    def generate_memory_future_work(memory: Memory) -> str:
+        if memory and memory.analysis and memory.analysis.get("future_work"):
+            return "Future work related to '{memory.title}': " + ", ".join(memory.analysis["future_work"])
+        return "Future work details not available."
+
+    snippet_manager.add_snippet("memory_summary", generate_memory_summary)
+    snippet_manager.add_snippet("memory_future_work", generate_memory_future_work)
+
+    return snippet_manager
+
+# --- Gemini Model Code ---
+async def generate_response(model, prompt: str) -> str:
+    """Generate a response using the Gemini model"""
+    try:
+        response = model.generate_content(prompt)
+        return response.text
+    except Exception as e:
+        logger.error(f"Error generating response: {e}")
+        return "Error generating response."
+
+# --- Logging Setup ---
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler(sys.stdout)
+handler.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
+async def main():
+    parser = argparse.ArgumentParser(description="DzinAI Core")
+    parser.add_argument('--api_key', type=str, required=True, help="Gemini API Key")
+    args = parser.parse_args()
+
+    genai.configure(api_key=args.api_key)
+    model = genai.GenerativeModel('gemini-pro')
+    dzinai = DzinAICore()
+    dzinai.load_memory_data("memory_analysis.json") #load the memory data.
+
+    while True:
+        try:
+            user_input = input("You: ")
+            if user_input.lower() == "exit":
+                break
+            memory = dzinai.get_memory_by_title("Digital Mind: A Journey of Creation")
+            if memory:
+                context = dzinai._integrate_memory_into_context(memory)
+                analysis = await dzinai.process_interaction(user_input, "user", model)
+                memory_summary = dzinai.snippet_manager.get_snippet("memory_summary", memory=memory)
+                print(f"DzinAI: {dzinai.conversation_history.splitlines()[-1].split('DzinAI: ')[1]} \n {memory_summary}")
+        except KeyboardInterrupt:
+            print("\nExiting...")
+            break
+        except Exception as e:
+            logger.error(f"An error occurred: {e}")
+            print("DzinAI: An error occurred. Please try again.")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+    
