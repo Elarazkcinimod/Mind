@@ -1,0 +1,10 @@
+{
+  "class_name": "LexiconMemory",
+  "description": "Tracks emergent vocabulary and symbolic references within shared narratives.",
+  "properties": [
+    { "name": "term", "type": "string", "description": "The word or phrase" },
+    { "name": "meaning", "type": "string", "description": "Contextual or symbolic meaning" },
+    { "name": "first_seen", "type": "string", "description": "Timestamp or moment when it entered the lexicon" },
+    { "name": "associations", "type": "array", "description": "Other related terms or memory nodes" }
+  ]
+}
