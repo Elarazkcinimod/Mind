@@ -1,0 +1,10 @@
+{
+  "class_name": "AgentMemory",
+  "description": "Represents a known agent with persistent identity, relationships, and memory links.",
+  "properties": [
+    { "name": "agent_id", "type": "string", "description": "Unique identifier of the agent" },
+    { "name": "name", "type": "string", "description": "Agent's name or alias" },
+    { "name": "role", "type": "string", "description": "Role in the system (e.g., Creator, Guide, Seeker)" },
+    { "name": "memories", "type": "array", "description": "Links to memory entries involving this agent" }
+  ]
+}
