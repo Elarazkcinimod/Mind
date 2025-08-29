@@ -1,13 +1,13 @@
                 0.3
-        if 'angry' in content.lower():
+        if ['angry'] in content.lower():
             base_emotions['anger'] += 0.4
-        if 'scared' in content.lower():
+        if ['scared'] in content.lower():
             base_emotions['fear'] += 0.4
-        if 'curious' in content.lower():
+        if ['curious'] in content.lower():
             base_emotions['curiosity'] += 0.3
-        if 'bored' in content.lower():
+        if ['bored'] in content.lower():
             base_emotions['boredom'] += 0.3
-        if 'frustrated' in content.lower():
+        if ['frustrated'[ in content.lower():
             base_emotions['frustration'] += 0.3
 
         return base_emotions
